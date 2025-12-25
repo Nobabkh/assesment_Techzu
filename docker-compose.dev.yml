@@ -1,0 +1,77 @@
+services:
+  # MongoDB Database
+  mongodb:
+    image: mongo:latest
+    container_name: comment-system-db
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_DATABASE: comment_system
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+    networks:
+      - comment-system-network
+    command: ["--replSet", "rs0", "--bind_ip_all"]
+    healthcheck:
+      test: |
+        mongosh --eval "try { rs.status() } catch (e) { rs.initiate({_id: 'rs0', members: [{_id: 0, host: 'mongodb:27017'}]}) }"
+      interval: 5s
+      timeout: 30s
+      start_period: 0s
+      retries: 30
+
+  # Backend API
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.dev
+    container_name: comment-system-backend-dev
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: mongodb://mongodb:27017/comment_system?replicaSet=rs0
+      JWT_SECRET: your_jwt_secret_key_here
+      NODE_ENV: development
+      PORT: 5000
+    ports:
+      - "5000:5000"
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    volumes:
+      # Mount entire backend directory for hot reload
+      - ./backend:/app
+      # Prevent node_modules from being overwritten
+      - /app/node_modules
+      - /app/dist
+    networks:
+      - comment-system-network
+
+  # Frontend
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.dev
+    container_name: comment-system-frontend-dev
+    restart: unless-stopped
+    environment:
+      - VITE_API_URL=http://localhost:5000
+    ports:
+      - "3000:3000"
+    depends_on:
+      backend:
+        condition: service_started
+    volumes:
+      # Mount entire frontend directory for hot reload
+      - ./frontend:/app
+      # Prevent node_modules from being overwritten
+      - /app/node_modules
+    networks:
+      - comment-system-network
+
+volumes:
+  mongodb_data:
+
+networks:
+  comment-system-network:
+    driver: bridge

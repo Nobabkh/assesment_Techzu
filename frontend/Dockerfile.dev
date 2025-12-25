@@ -1,0 +1,17 @@
+# Use an official Node.js runtime as a parent image
+FROM node:24-alpine
+
+# Set the working directory in the container
+WORKDIR /app
+
+# Copy package.json and package-lock.json
+COPY package*.json ./
+
+# Install all dependencies
+RUN npm install
+
+# Expose the port Vite runs on
+EXPOSE 5173
+
+# Define the command to run the application with Vite dev server for hot reload
+CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0"]

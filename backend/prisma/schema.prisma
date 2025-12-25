@@ -1,0 +1,93 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "debian-openssl-1.1.x"]
+}
+
+datasource db {
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  email     String   @unique
+  username  String   @unique
+  name      String?
+  password  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relations
+  comments  Comment[]
+  likes     Like[]
+  replies   Reply[]
+}
+
+model Comment {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  content   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relations
+  author    User     @relation(fields: [authorId], references: [id])
+  authorId  String   @db.ObjectId
+  likes     Like[]
+  replies   Reply[]
+  parent    Comment? @relation("CommentReplies", fields: [parentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  parentId  String?  @db.ObjectId
+  repliesTo Comment[] @relation("CommentReplies")
+  
+  // Indexes
+  @@index([authorId])
+  @@index([createdAt])
+  @@index([parentId])
+}
+
+model Like {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  type      String   // 'like' or 'dislike'
+  createdAt DateTime @default(now())
+  
+  // Relations
+  user      User     @relation(fields: [userId], references: [id])
+  userId    String   @db.ObjectId
+  comment   Comment  @relation(fields: [commentId], references: [id])
+  commentId String   @db.ObjectId
+  reply     Reply?   @relation(fields: [replyId], references: [id], onDelete: Cascade)
+  replyId   String?  @db.ObjectId
+  
+  // Indexes
+  @@unique([userId, commentId])
+  @@unique([userId, replyId])
+  @@index([commentId])
+  @@index([replyId])
+  @@index([userId])
+  @@index([type])
+}
+
+model Reply {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  content   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relations
+  author    User     @relation(fields: [authorId], references: [id])
+  authorId  String   @db.ObjectId
+  comment   Comment  @relation(fields: [commentId], references: [id])
+  commentId String   @db.ObjectId
+  parent    Reply?   @relation("ReplyReplies", fields: [parentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  parentId  String?  @db.ObjectId
+  replies   Reply[]  @relation("ReplyReplies")
+  likes     Like[]
+  
+  // Indexes
+  @@index([authorId])
+  @@index([commentId])
+  @@index([createdAt])
+  @@index([parentId])
+}
